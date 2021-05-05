@@ -1,0 +1,17 @@
+---
+title: "Hello There!"
+author: "Michael Nguyen "
+date: 2021-05-05T21:13:14-05:00
+categories: []
+tags: []
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse = TRUE)
+```
+
+# Hello There!
+
+Welcome to my personal website! My name is Michael Nguyen. I am a third-year student the University of Texas at Austin pursuing a Bachelor of Science and Arts Degree in Biology. I made this website as a project for my Biostatistic course. It features two projects regarding Data Analysis and Modeling for data that I've found on the internet. I've also included my resume and personal social media on this site if you want to get to know a little more about me. 
+
+Thanks for visiting!!! ༼ つ ◕_◕ ༽つ 

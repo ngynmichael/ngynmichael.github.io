@@ -1,0 +1,131 @@
+---
+title: 'Project 1: Exploratory Data Analysis'
+author: "SDS348"
+date: 2021-04-04T21:13:14-05:00
+output:
+  html_document:
+    toc: yes
+    toc_float:
+      collapsed: no
+      smooth_scroll: yes
+  pdf_document:
+    toc: no
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE, fig.align = "center", warning = F, message = F,
+tidy=TRUE, tidy.opts=list(width.cutoff=60), R.options=list(max.print=100))
+```
+
+## Data Wrangling and Data Exploration
+
+### Introduction
+I chose to study three data sets on crime rates, bad drivers, and state data. My bad drivers data set contains data on the percentage of bad drivers in each state a long with statistics such as if alcohol is involved or phone calls, as well as how much insurance premiums were raised. My crime rates data set contains data on the amount of prisoners a state has along with the times of crimes that were committed. Lastly, my state information data set classifies states into specific regions and divisions. I wanted to see if there was any statistical correlations or relationships between the amount of bad drivers and crime. I added a data set on state data to see if there were any correlations or relationships with the region or division the crimes or bad drivers occurred in. I expect to an increased number of bad drivers in the same areas and states as those with high crime rates. I don't expect to see any specific correlations between regions and crime rates or bad drivers.
+
+### Part 1
+1. If the datasets are not tidy, you will need to reshape them so that every observation has its own row and every variable its own column. If the datasets are both already tidy, you will make them untidy with `pivot_wider()/spread()` and then tidy them again with `pivot_longer/gather()` to demonstrate your use of the functions. It's fine to wait until you have your descriptives to use these functions (e.g., you might want to pivot_wider() to rearrange the data to make your descriptive statistics easier to look at); it's fine long as you use them at least once!
+
+```{R}
+library(fivethirtyeight)
+library(tidyverse)
+bad_drivers <- bad_drivers
+crime <- read.csv("crime_and_incarceration_by_state.csv", header = TRUE)
+state_info <- state_info
+```
+I imported each of my data sets. Two of my data sets, bad_drivers and state_info, were imported from a library called fivethirtyeight which allowed me to directly assign them to variables. I had to import my last data set, crime, from a CSV file in which, I downloaded off the internet.
+
+### Part 2
+2. Join your 2+ separate data sources into a single dataset based on a common ID variable! If you can't find a good pair datasets to join, you may split one main dataset into two different datasets with a common ID variable in each, and then join them back together based on that common ID, but this is obviously less than ideal.
+```{R}
+data_set <- bad_drivers %>% full_join(crime, by=c("state"="jurisdiction"))
+data_set <- data_set %>% full_join(state_info, by=c("state"))
+data_set <- data_set %>% filter(!is.na(prisoner_count))
+data_set <- data_set %>% rename(numDrivers = num_drivers,
+                                prisonerCount = prisoner_count,
+                                violentCrimeTotal = violent_crime_total,
+                                statePopulation = state_population,
+                                vehicleTheft = vehicle_theft)
+```
+I first added the crime data set to the bad_drivers data set using a full join by the variables "state" and "jurisdiction" and saved it in to a new data set. I then added the state_info data set into my newly formed data set. I also filtered out any N/A values during this time and renamed the variables to make them more manageable in future functions.
+
+### Part 3
+3. Create summary statistics
+``` {R}
+data_set <- data_set %>% mutate(percPrisoners = (prisonerCount/statePopulation) * 100)
+data_set <- data_set %>% select(state, numDrivers, prisonerCount, violentCrimeTotal, statePopulation ,vehicleTheft, region, division, percPrisoners)
+data_set %>% summarize_at(c("numDrivers","prisonerCount"), mean, na.rm=T)
+data_set %>% group_by(region) %>% select_if(is.numeric) %>% summarize_all(mean, na.rm=T)
+data_set %>% filter(numDrivers > 15.8 & prisonerCount > 25340) %>% arrange(desc(numDrivers), desc(prisonerCount))
+
+
+data_set %>% select(-region) %>% select(-state) %>% select(-division) %>%
+  summarise_all(list(Min = min, Mean = mean, Max = max, Sd = sd, Median = median), na.rm =T) %>% 
+  pivot_longer(contains("_")) %>% arrange(name) %>% 
+  separate(name,into = c("Numeric","Statistics")) %>% 
+  pivot_wider(names_from="Statistics",values_from="value") %>% 
+  rename("Standard Deviation" = "Sd", "Data"="Numeric") %>% mutate(Range=Max-Min)
+
+data_set %>% select(-state) %>% select(-division) %>% group_by(region) %>% 
+  summarise_all(list(Min = min, Mean = mean, Max = max, Sd = sd, Median = median), na.rm =T) %>% 
+  pivot_longer(contains("_")) %>% arrange(name) %>% pivot_wider(names_from="name", values_from="value")
+
+data_set %>% select(-state) %>% group_by(region, division) %>% 
+  summarise_all(list(Min = min, Mean = mean, Max = max, Sd = sd, Median = median), na.rm =T) %>% 
+  pivot_longer(contains("_")) %>% arrange(name) %>% pivot_wider(names_from="name", values_from="value")
+```
+First, I used the dplyr select function to obtain the variables I wanted to look at from my compiled data set. Then I used the dplyr summarize function to find the average percentage of bad drivers per state and the average prisoner count in each state which was 15.988 and 25,339.96, respectively. After, grouped the data set by region and found the average amount of each variable by region. I also was able to filter the states by those with an average percentage above the mean and an average prisoner count above the mean as well using the dplyr filter function and arranged them in descending order using the arrange function. I found that Texas, Alabama, and Arizona were the top three states with the most amount of bad drivers and prisoners, respectively. Finally, I made a new variable of the percentage prisoners (percPrisoners) by dividing the amount of prisoners by the state population using the mutate function.
+
+I computed summary statistics for all of my variables using the summarizeall function. I had to pivot my data in order to display it in a tidy and readable table. I repeated this process two more times, in which the first I grouped the data by region to find the summary statistics for each region for each variable. The second time I grouped the data by division and region to find the summary statistic for each region and division for each variable.
+
+### Part 4
+4. Make visualizations (three plots)
+
+``` {R}
+data_set %>% ggplot(aes(x=reorder(region, prisonerCount), y = prisonerCount, fill = region))+
+              geom_bar(stat="identity") + 
+              coord_flip() + 
+              theme(legend.position = "none") + 
+              scale_y_continuous("Number of Prisoners", breaks=seq(0, 500000, 100000))+ xlab("Region")
+
+data_set %>% ggplot(aes(x = region, y = numDrivers, color = "red")) + 
+            geom_errorbar(stat = "summary", fun.data=mean_se, color = "black") + 
+            geom_point(stat = "summary", size = 10) + xlab("Region") + 
+            ggtitle("Average Percent of Drivers in Each Region") + 
+            scale_y_continuous("Average Percent of Drivers")
+
+data_set %>% select_if(is.numeric) %>% cor %>% as.data.frame %>%  rownames_to_column %>% pivot_longer(-1) %>% 
+              ggplot(aes(rowname,name,fill=value))+
+              geom_tile()+ 
+              geom_text(aes(label=round(value,2)))+ 
+              xlab("")+ylab("")+coord_fixed()+
+              scale_fill_gradient2(low="blue", mid = "white", high= "green")
+```
+First, I plotted the number of prisoners in each region and found that the south has the greatest number of prisoners. Then, I made a plot of the average percent of bad drivers with error bars and found that the South has the highest average percentage of bad drivers, while the Northeast has the lowest percentage of bad drivers. Finally, I made a heat map showing all of the correlations between each of the variables. There were significant positive correlations between all combinations of the four variables, violentCrimeTotal, vehicleTheft, statePopulation, and prisonerCount.
+    
+### Part 5
+5. Perform k-means/PAM clustering or PCA on (at least) your numeric variables.
+```{R}
+library(cluster)
+library(GGally)
+pam_dat <- data_set %>% select(- state, -region, -division )
+
+
+sil_width<-vector()
+
+for(i in 2:10){  
+  pam_fit <- pam(pam_dat, k = i)  
+  sil_width[i] <- pam_fit$silinfo$avg.width  
+}
+ggplot()+geom_line(aes(x=1:10,y=sil_width))+scale_x_continuous(name="k",breaks=1:10)
+
+pam1 <- data_set %>%pam(k=2)
+data_set %>% mutate(cluster=as.factor(pam1$clustering)) %>% 
+  ggpairs(columns = c("numDrivers","prisonerCount","violentCrimeTotal","statePopulation","vehicleTheft", "percPrisoners"), aes(color=cluster))
+
+plot(pam1, which=2)
+plot(pam1, which = 1)
+
+
+
+```
+I ran a PAM cluster on my data set and found that the largest average silhouette width was found when there were two clusters. Then I used ggpairs to visualize the pairwise combination of all the variables. I found there were strong positive correlations between all combinations of violentCrimeTotal, statePopulation, and vehicleTheft. There was also a significant positive correlation between percPrisoners and numDrivers. After I graphed out the silhouette widths for two clusters and found that there was a strong structure within the first cluster with an average width of 0.79, but no substantial structure found in the second cluster with an average width of 0.14. Finally, I plotted out the clusters for visualization.

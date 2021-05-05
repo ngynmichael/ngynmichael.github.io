@@ -1,0 +1,292 @@
+---
+title: 'Project 2: Modeling, Testing, and Predicting'
+author: "SDS348"
+date: 2021-05-07T21:13:14-05:00
+output:
+  html_document:
+    toc: yes
+    toc_float:
+      collapsed: no
+      smooth_scroll: yes
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+hook_output = knit_hooks$get('output')
+knit_hooks$set(output = function(x, options) {
+  # this hook is used only when the linewidth option is not NULL
+  if (!is.null(n <- options$linewidth)) {
+    x = knitr:::split_lines(x)
+    # any lines wider than n should be wrapped
+    if (any(nchar(x) > n)) x = strwrap(x, width = n)
+    x = paste(x, collapse = '\n')
+  }
+  hook_output(x, options)
+})
+
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE,fig.align="center",warning=FALSE,message=FALSE,fig.width=8, fig.height=5, linewidth=60)
+options(tibble.width = 100,width = 100)
+library(tidyverse)
+```
+
+# Modeling
+
+## Instructions
+
+A knitted R Markdown document (preferably HTML) and the raw R Markdown file (as .Rmd) should both be submitted to Canvas by 11:59pm on the due date. These two documents will be graded jointly, so they must be consistent (i.e., don’t change the R Markdown file without also updating the knitted document). In the .Rmd file for Project 2, you can copy the first code-chunk into your project .Rmd file to get better formatting. Notice that you can adjust the opts_chunk$set(...) above to set certain parameters if necessary to make the knitting cleaner (you can globally set the size of all plots, etc). You can copy the set-up chunk in Project2.Rmd: I have gone ahead and set a few for you (such as disabling warnings and package-loading messges when knitting)! 
+
+Like before, I envision your written text forming something of a narrative structure around your code/output. All results presented must have corresponding code. Any answers/results/plots etc. given without the corresponding R code that generated the result will not be graded. Furthermore, all code contained in our project document should work properly. Please do not include any extraneous code or code which produces error messages. (Code which produces warnings is fine as long as you understand what the warnings mean.)
+
+## Find data:
+
+Find one dataset with at least 5 variables (ideally more!) that you want to use to build models/test hypotheses. At least one should be categorical (with 2-5 groups, ideally; definitely fewer than 10) and at least two should be numeric (taking on more than 10 distinct values). Ideally, at least of your variables will be binary (if not, you will have to create one by discretizing a numeric or collapsing levels of a categorical). You will need a minimum of 40 observations (*at least* 10 observations for every explanatory variable you have, ideally 20+ observations/variable).
+
+It is perfectly fine to use either dataset (or the merged dataset, or a subset of your variables) from Project 1. However, I might encourage you to diversify things a bit and choose a different dataset to work with (particularly if the variables did not reveal interesting associations in Project 1 that you want to follow up with). The only requirement/restriction is that you may not use data from any examples we have done in class or lab. It would be a good idea to pick more cohesive data this time around (i.e., variables that you actually thing might have a relationship you would want to test). Think more along the lines of your Biostats project.
+
+Again, you can use data from anywhere you want (see bottom for resources)! If you want a quick way to see whether a built-in (R) dataset has binary and/or character (i.e., categorical) variables, check out this list: https://vincentarelbundock.github.io/Rdatasets/datasets.html.
+
+
+## Guidelines and Rubric
+
+- **0. (5 pts)** Introduce your dataset and each of your variables (or just your main variables if you have lots) in a paragraph. What are they measuring? How many observations?
+
+I chose a data set that collected data on Happiness and Alcohol consumption through the variables of Human Development Index, Happiness Score, GDP per Capita, Liters per Capita of Beer Consumed, Liters per Capita of Spirits Consumed, and Liters per Capita of Wine Consumed. These variables were collected by country and each country was classified by the Region and Hemisphere it was in. The data had 122 observations. I wanted to see if there was any correlation between Alcohol consumption and Happiness, as well as if the variables could predict the hemisphere of the earth the country presided in.
+
+
+- **1. (15 pts)** Perform a MANOVA testing whether any of your numeric variables (or a subset of them, if including them all is unreasonable or doesn't make sense) show a mean difference across levels of one of your categorical variables (3). If they do, perform univariate ANOVAs to find response(s) showing a mean difference across groups (3), and perform post-hoc t tests to find which groups differ (3). Discuss the number of tests you have performed, calculate the probability of at least one type I error (if unadjusted), and adjust the significance level accordingly (bonferroni correction) before discussing significant differences (3). Briefly discuss some of the MANOVA assumptions and whether or not they are likely to have been met here (no need for anything too in-depth) (2).
+```{R}
+library(tidyverse)
+data <- read.csv("~/website/content/project/HappinessAlcoholConsumption.csv")
+man <- manova(cbind(HappinessScore, HDI, GDP_PerCapita, Beer_PerCapita, Spirit_PerCapita, Wine_PerCapita)~Hemisphere, data=data)
+summary(man)
+
+summary.aov(man)
+
+pairwise.t.test(data$HappinessScore, data$Hemisphere, p.adj="none")
+
+pairwise.t.test(data$HDI, data$Hemisphere, p.adj="none")
+
+pairwise.t.test(data$Spirit_PerCapita, data$Hemisphere, p.adj="none")
+
+1 - (0.95 ^ 10)
+(0.05/10)
+```
+I ran a MANOVA to determine if Hemisphere has an effect on each of the other variables. Of all the variables, three were significant. I ran pairwise t-tests on all three of the variables that were significant, HappinessScore, HDI, and Spirit_PerCapita. It was found that there was a significant difference in HDI and Spirit_PerCapita between countries in the north and south hemispheres.
+There were 10 test run, meaning that the probability of at least one type I error would be about 0.4. The adjusted significance level is 0.005. With the new significance level, the difference in Spirit_PerCapita is the only variable still significant.
+
+```{R}
+ggplot(data, aes(x = HDI, y = Spirit_PerCapita)) +
+  geom_point(alpha = .5) + facet_wrap(~Hemisphere)
+
+ggplot(data, aes(x = Spirit_PerCapita, y = HappinessScore)) +
+  geom_point(alpha = .5) + facet_wrap(~Hemisphere)
+
+ggplot(data, aes(x = HappinessScore, y = HDI)) +
+  geom_point(alpha = .5) + facet_wrap(~Hemisphere)
+
+```
+When running MANOVAs, it is important to maintain the check the assumptions that the data is randomly sampled with independent observations and that the dependent variables is multivariately normal. I graphed out the variables against the hemispheres and it does not look like the data is multivariately normal.
+
+- **2. (10 pts)** Perform some kind of randomization test on your data (that makes sense). The statistic can be anything you want (mean difference, correlation, F-statistic/ANOVA, chi-squared), etc. State null and alternative hypotheses, perform the test, and interpret the results (7). Create a plot visualizing the null distribution and the test statistic (3).
+
+Null Hypothesis: The mean happiness score is the same between countries within the northern versus southern hemispheres
+Alternative Hypothesis: The mean happiness score is different between countries within the northern versus southern hemispheres
+```{R}
+mean(data[data$Hemisphere == "north",]$HappinessScore) - mean(data[data$Hemisphere == "south",]$HappinessScore)
+
+r_dist <- vector()
+for (i in 1:5000){
+  new <- data.frame(HappinessScore=sample(data$HappinessScore), hemi = data$Hemisphere)
+  r_dist[i] <- mean(new[new$hemi=="north",]$HappinessScore) - mean(new[new$hemi=="south",]$HappinessScore)
+}
+
+mean(r_dist > 0.4767837) * 2
+```
+The randomization test produced a p-value of 0.062, which is greater than 0.05, The concludes that there is not a significant difference in mean happiness score between countries within the northern versus southern hemispheres.
+
+```{R}
+{hist(r_dist, main="Randomized Distribution of Mean Differences", ylab="", 
+      xlab="Difference Between North and South Hemispheres"); 
+  abline(v=0.4767837, col="red")}
+```
+The histogram shows that the difference in means is within the histogram which shows that there is a moderate likelihood of there being no difference in means between countries in the northern hemisphere and the southern hemisphere.
+
+- **3. (40 pts)** Build a linear regression model predicting one of your response variables from at least 2 other variables, including their interaction. Mean-center any numeric variables involved in the interaction.
+
+    - Interpret the coefficient estimates (do not discuss significance) (10)
+    - Plot the regression using `ggplot()` using geom_smooth(method="lm"). If your interaction is numeric by numeric, refer to code in the slides to make the plot or check out the `interactions` package, which makes this easier. If you have 3 or more predictors, just chose two of them to plot for convenience. (10)
+    - What proportion of the variation in the outcome does your model explain? (4)
+    - Check assumptions of linearity, normality, and homoskedasticity either graphically or using a hypothesis test (5)
+    - Regardless, recompute regression results with robust standard errors via `coeftest(..., vcov=vcovHC(...))`. Discuss significance of results, including any changes from before/after robust SEs if applicable. (10)
+```{R}
+library(lmtest)
+library(sandwich)
+data$Beer_PerCapita_c <- data$Beer_PerCapita - mean(data$Beer_PerCapita)
+data$Wine_PerCapita_c <- data$Wine_PerCapita - mean(data$Wine_PerCapita)
+
+linear <- lm(HappinessScore ~ Beer_PerCapita_c * Wine_PerCapita_c, data=data)
+summary(linear)
+```
+After running a linear regression, it appears that for every 1 Liter per Capita increase in Beer Consumption the Happiness Score increases by 3.889e-03, for every 1 Liter per Capita increase in Wine Consumption the Happiness Score increases by 3.796e-03. When accounting for the interaction between Wine and Beer consumption, a 1 liter increase in both decreases the Happiness Score by 3.926e-06.
+
+```{R}
+ggplot(data, aes(x=Beer_PerCapita, y=Wine_PerCapita))+geom_point(aes(color=HappinessScore))+
+  geom_smooth(method="lm", se=F, fullrange=T, aes(color=HappinessScore))+
+  ggtitle("Wine Per Capita vs. Beer Per Capita")+ 
+xlab("Beer Per Capita")+ylab("Wine Per Capita")+theme_classic()
+
+res <- linear$residuals
+shapiro.test(res)
+bptest(linear)
+```
+When running a linear regression, it's also important to check the assumptions of independent observations, random sampling, normally distributed residuals, and equal variances. From the graph, we can see that the data has a loose linear relationship. We also obtained a p-value of 0.4 (>0.05) from our Shapiro-Wilk normality test, meaning that we must fail to reject the null hypothesis that the data is normal. Finally, from our studentized Breusch-Pagan test we obtained a p-value of 0.76 (> 0.05), which means we must fail to reject the null hypothesis that the data is homoskedasktic.
+
+```{R}
+coeftest(linear, vcov = vcovHC(linear))
+
+summary(linear)$r.sq
+```
+I ran the same regression with robust standard errors and found that the p-values for all of the variables decreased slightly, with the exception of only Beer_PerCapita increasing slightly. The same variables were significant in both regressions. 
+The proportion of variance explained by the model is 0.3044.
+
+- **4. (5 pts)** Rerun same regression model (with the interaction), but this time compute bootstrapped standard errors (either by resampling observations or residuals). Discuss any changes you observe in SEs and p-values using these SEs compared to the original SEs and the robust SEs)
+```{R}
+sample_dist <- replicate(5000, {
+  bootstrapped <- data[sample(nrow(data), replace=TRUE),]
+  boot <- lm(HappinessScore ~ Beer_PerCapita_c * Wine_PerCapita_c, data = bootstrapped)
+  coef(boot)
+})
+
+sample_dist %>% t %>% as.data.frame %>% summarize_all(sd)
+```
+The bootstrapped standard errors were slightly lower for the intercept, Wine Per Capita,and the interaction between Beer and Wine Per Capita, but slightly higher for Beer Per Capita seperately.
+
+- **5. (30 pts)** Fit a logistic regression model predicting a binary variable (if you don't have one, make/get one) from at least two explanatory variables (interaction not necessary). 
+
+    - Interpret coefficient estimates in context (10)
+    - Report a confusion matrix for your logistic regression (5)
+    - Compute and discuss the Accuracy, Sensitivity (TPR), Specificity (TNR), Precision (PPV), and AUC of your model (5)
+    - Using ggplot, make a density plot of the log-odds (logit) colored/grouped by your binary outcome variable (5)
+    - Generate an ROC curve (plot) and calculate AUC (either manually or with a package); interpret (5)
+```{R}
+class_diag<-function(probs,truth){
+  
+  tab<-table(factor(probs>.5,levels=c("FALSE","TRUE")),truth)
+  acc=sum(diag(tab))/sum(tab)
+  sens=tab[2,2]/colSums(tab)[2]
+  spec=tab[1,1]/colSums(tab)[1]
+  ppv=tab[2,2]/rowSums(tab)[2]
+
+  if(is.numeric(truth)==FALSE & is.logical(truth)==FALSE) truth<-as.numeric(truth)-1
+  
+  #CALCULATE EXACT AUC
+  ord<-order(probs, decreasing=TRUE)
+  probs <- probs[ord]; truth <- truth[ord]
+  
+  TPR=cumsum(truth)/max(1,sum(truth)) 
+  FPR=cumsum(!truth)/max(1,sum(!truth))
+  
+  dup<-c(probs[-1]>=probs[-length(probs)], FALSE)
+  TPR<-c(0,TPR[!dup],1); FPR<-c(0,FPR[!dup],1)
+  
+  n <- length(TPR)
+  auc<- sum( ((TPR[-1]+TPR[-n])/2) * (FPR[-1]-FPR[-n]) )
+
+  data.frame(acc,sens,spec,ppv,auc)
+}
+```
+
+```{R}
+library(plotROC)
+logistic <- glm(Hemisphere ~ Beer_PerCapita + Wine_PerCapita, data = data, family = binomial(link="logit"))
+exp(coeftest(logistic))
+```
+For every 1 liter increase of beer consumed per capita, the odds of the country being in the southern hemisphere increases by 1. For every 1 liter increase of wine consumed per capita, the odds of the country being in the southern hemisphere increases by about 0.996.
+
+```{R}
+data$prob<-predict(logistic,type="response")
+data$pred<-ifelse(data$prob>0.5,"north","south")
+table(prediction=as.numeric(data$prob>.5),truth=data$Hemisphere)%>%addmargins
+class_diag(data$prob, data$Hemisphere)
+
+data$logpred<-predict(logistic, type="link")
+data%>%ggplot()+geom_density(aes(logpred,color=Hemisphere,fill=Hemisphere), alpha=.4)+
+  theme(legend.position=c(.85,.85))+geom_vline(xintercept=0)+ggtitle("Density Plot of predicted North vs. South")+xlab("predictor (logit)")
+
+ROCplot <- ggplot(data) + geom_roc(aes(d = Hemisphere, m = prob), n.cuts = 0)
+ROCplot
+calc_auc(ROCplot)
+```
+The accuracy of the model is 0.787. The sensitivity of the model is 0. The specificity of the model is 1. The precision of the model is Not a Number. Finally, the AUC of the model is 0.60, which means our model is kind of poor at predicting the hemisphere in which the country resides.
+
+- **6. (25 pts)** Perform a logistic regression predicting the same binary response variable from *ALL* of the rest of your variables (the more, the better!) 
+
+    - Fit model, compute in-sample classification diagnostics (Accuracy, Sensitivity, Specificity, Precision, AUC), and interpret (5)
+    - Perform 10-fold (or repeated random sub-sampling) CV with the same model and report average out-of-sample classification diagnostics (Accuracy, Sensitivity, Specificity, Precision, and AUC); interpret AUC and compare with the in-sample metrics (10)
+    - Perform LASSO on the same model/variables. Choose lambda to give the simplest model whose accuracy is near that of the best (i.e., `lambda.1se`). Discuss which variables are retained. (5)
+    - Perform 10-fold CV using only the variables lasso selected: compare model's out-of-sample AUC to that of your logistic regressions above (5)
+```{R}
+library(glmnet)
+logistic2 <- glm(Hemisphere ~ HappinessScore + HDI + GDP_PerCapita + Beer_PerCapita + Spirit_PerCapita + Wine_PerCapita, data = data, family = binomial)
+exp(coeftest(logistic2))
+
+data$prob<-predict(logistic2,type="response") 
+data$pred<-ifelse(data$prob>0.5,"north","south")
+
+table(prediction=as.numeric(data$prob>.5),truth=data$Hemisphere)%>%addmargins
+
+class_diag(data$prob, data$Hemisphere)
+```
+I ran a logistic regression predicting hemisphere from the rest of my variables. I found that for every one unit increase in the happiness score the odds of the country residing in the southern hemisphere increased by 1.2. When HDI increased by one unit, the odds of the country residing in the southern hemisphere increased by 0.99. When GDP_PerCapita increased by one unit, the odds of the country residing in the southern hemisphere increased by 0.99, as well. When Beer_PerCapita, the odds of the country residing in the southern hemisphere increased by 1.0. When Spirit_PerCapita increased by one unit, the odds of the country residing in the southern hemisphere increased by 0.98. Finally, a one unit increase in Wine_PerCapita caused the odds of the country residing in the southern hemisphere to increase by 1.0.
+The accuracy for the mode was about 0.8. The sensitivity was about 0.23 for the model. The specificity was about 0.95 for the model. The precision for the model was about 0.54. Finally, the AUC for the model was 0.81, which means our model is a fair predictor of hemisphere.
+
+```{R}
+set.seed(1234)
+k=10 
+
+data1<-data[sample(nrow(data)),]
+folds<-cut(seq(1:nrow(data)),breaks=k,labels=F)
+diags<-NULL
+for(i in 1:k){
+ train<-data1[folds!=i,]
+ test<-data1[folds==i,]
+ truth<-test$Hemisphere
+ fit<-glm(Hemisphere~HappinessScore + HDI + GDP_PerCapita + Beer_PerCapita + Spirit_PerCapita + Wine_PerCapita, data=train, family=binomial(link="logit"))
+ probs<-predict(fit,newdata = test,type="response")
+ diags<-rbind(diags,class_diag(probs,truth))
+}
+
+summarize_all(diags,mean)
+```
+After running a k-fold CV, I found that the accuracy of the model was about 0.787, the sensitivity of the model was about 0.31, the specificity was about 0.93, the precision was not a number, and finally the AUG was bout 0.79, which was a light decrease from the original regression.
+
+```{R}
+mat<-model.matrix(logistic2)
+y<-as.matrix(data$Hemisphere)
+x<-as.data.frame(mat) %>% dplyr::select(-1) %>% as.matrix
+cv<-cv.glmnet(x,y, family = "binomial")
+lasso<-glmnet(x,y, family = "binomial",lambda=cv$lambda.1se)
+
+coef(lasso)
+```
+After running a LASSO on the regression, it was found that the two variables that are the best predictors of hemisphere were HDI and Spirit_PerCapita. 
+
+```{R}
+set.seed(1234)
+k=10 
+
+data1<-data[sample(nrow(data)),]
+folds<-cut(seq(1:nrow(data)),breaks=k,labels=F)
+diags<-NULL
+for(i in 1:k){
+ train<-data1[folds!=i,]
+ test<-data1[folds==i,]
+ truth<-test$Hemisphere
+ fit<-glm(Hemisphere~HDI + Spirit_PerCapita, data=train, family=binomial(link="logit"))
+ probs<-predict(fit,newdata = test,type="response")
+ diags<-rbind(diags,class_diag(probs,truth))
+}
+
+summarize_all(diags,mean)
+```
+Finally, I ran another k-fold CV and found that the accuracy was slightly lower in this model with a value of 0.754. The sensitivity of the model was 0, the specificity of the model was 0.96, the precision of the model was not a number, and finally the AUC was about 0.73, which is a decrease from the original model.
